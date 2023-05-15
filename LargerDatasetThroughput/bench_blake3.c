@@ -8,6 +8,7 @@
 
 #define CHUNK_SIZE 32              // Size of each chunk in bytes
 #define NUM_THREADS 4              // Number of threads to use
+#define NUM_ITERATIONS 10000000    // Number of iterations to run
 
 struct thread_args {
     FILE *file;
@@ -20,8 +21,12 @@ void *hash_thread(void *arg) {
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     
-    while (fread(chunk, sizeof(uint8_t), CHUNK_SIZE, args->file) == CHUNK_SIZE) {
-        blake3_hasher_update(&hasher, chunk, CHUNK_SIZE);
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        fseek(args->file, 0, SEEK_SET);  // Reset file position to the beginning
+        
+        while (fread(chunk, sizeof(uint8_t), CHUNK_SIZE, args->file) == CHUNK_SIZE) {
+            blake3_hasher_update(&hasher, chunk, CHUNK_SIZE);
+        }
     }
     
     blake3_hasher_finalize(&hasher, digest, BLAKE3_OUT_LEN);
@@ -60,7 +65,7 @@ int main(int argc, char *argv[]) {
     // Calculate total time and hash rate
     total_time = ((end_time.tv_sec - start_time.tv_sec) * 1000000.0 +
                   (end_time.tv_usec - start_time.tv_usec)) / 1000000.0;
-    double hash_rate = ftell(file) / CHUNK_SIZE / total_time;
+    double hash_rate = (NUM_ITERATIONS * ftell(file)) / CHUNK_SIZE / total_time;
 
     // Print results
     printf("BLAKE3 hash rate: %.2f chunks/s\n", hash_rate);
